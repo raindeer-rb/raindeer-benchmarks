@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'stackprof'
+require 'fileutils'
+require_relative '../config/boot'
+
+duration = (ENV['PROFILE_SECONDS'] || 15).to_i
+out = ENV['PROFILE_OUT'] || 'tmp/stackprof-lowloop.dump'
+FileUtils.mkdir_p(File.dirname(out))
+
+StackProf.start(mode: :cpu, interval: 1000)
+
+Thread.new do
+  sleep duration
+  StackProf.stop
+  File.binwrite(out, Marshal.dump(StackProf.results))
+  warn "wrote #{out}"
+  exit!
+end
+
+Providers['low.loop'].start

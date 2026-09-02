@@ -1,0 +1,17 @@
+cell_color: '#0098fc'
+lead_color: '#ffffff'
+start_col: :random
+start_row: :random
+min_delay: 75
+fade: true
+fade_delay: 250
+leet: false
+leet_keys:
+  'a': '4'
+  'b': '8'
+  'e': '3'
+  'g': '9'
+  'i': '1'
+  'o': '0'
+  's': '5'
+  't': '7'

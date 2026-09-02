@@ -1,0 +1,11 @@
+host: '127.0.0.1'
+port: 4133
+web_root: './public'
+matrix_mode: false
+content_types:
+  html: text/html
+  css: text/css
+  txt: text/plain
+  jpg: image/jpeg
+  png: image/png
+  svg: image/svg+xml

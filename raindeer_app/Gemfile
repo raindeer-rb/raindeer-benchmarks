@@ -1,0 +1,27 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+local_gems = {
+  'raindeer' => '/Users/m/dev/raindeer',
+  'low_event' => '/Users/m/dev/low_event',
+  'low_loop' => '/Users/m/dev/low_loop',
+  'low_type' => '/Users/m/dev/low_type',
+  'observers' => '/Users/m/dev/observers'
+}
+
+local_gems.each do |name, path|
+  if File.exist?(path)
+    gem name, path: path
+  else
+    gem name
+  end
+end
+
+gem 'rack'
+gem 'falcon'
+# The upstream `iodine` gem (0.7.59) fails to load its C extension on Ruby 3.4.2
+# ("wrong argument type Module (expected Class)"), so use rage-rb's maintained
+# fork instead -- same project (facil.io-based evented server), just a newer build.
+gem 'rage-iodine', require: 'iodine'
+gem 'stackprof'
