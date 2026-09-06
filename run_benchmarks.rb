@@ -2,25 +2,33 @@
 # frozen_string_literal: true
 
 # Runs the full 6-way benchmark (Raindeer+LowLoop/Falcon, Roda+Falcon,
-# Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) against GET
-# /route100 -- the longest/last-registered of the 100 extra routes each app
-# defines (/route1..100), on top of / and /slow -- and writes
-# benchmark-report.html (a plain, unstyled HTML table) in this directory.
-# Re-run any time with:
+# Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) twice against each server --
+# once against GET / and once against GET /route100 (the longest/last-
+# registered of the 100 extra routes each app defines, /route1..100) -- and
+# writes benchmark-report.html (two plain, unstyled HTML tables, one per
+# path) in this directory. Re-run any time with:
 #
-#   ruby run_full_benchmark.rb
+#   ruby run_benchmarks.rb
 #
 # Method: `ab -n 2000 -c 25 -k` warm-up (discarded), then `ab -n 20000 -c 50 -k`
 # measured, against each server one at a time (never concurrently, to avoid CPU
 # contention skewing results). Each server runs as a single reactor/process --
-# no multi-core forking -- for a fair comparison.
+# no multi-core forking -- for a fair comparison. Both paths are tested against
+# the same running server before moving on to the next one.
 
 require 'net/http'
 require 'timeout'
 require 'fileutils'
 
 ROOT = __dir__
-TEST_PATH = '/route100'
+RUBY_BIN = File.expand_path('~/.asdf/installs/ruby/3.4.2/bin')
+ENV['PATH'] = "#{RUBY_BIN}:#{ENV['PATH']}"
+
+READY_PATH = '/'
+TEST_PATHS = {
+  'GET /' => '/',
+  'GET /route100' => '/route100'
+}.freeze
 
 WARMUP_ARGS  = %w[-n 2000  -c 25 -k]
 MEASURE_ARGS = %w[-n 20000 -c 50 -k]
@@ -83,7 +91,7 @@ def wait_until_ready(port, timeout: 20)
   deadline = Time.now + timeout
   loop do
     begin
-      Net::HTTP.start('127.0.0.1', port, open_timeout: 1, read_timeout: 1) { |http| http.head(TEST_PATH) }
+      Net::HTTP.start('127.0.0.1', port, open_timeout: 1, read_timeout: 1) { |http| http.head(READY_PATH) }
       return true
     rescue StandardError
       raise "timed out waiting for port #{port}" if Time.now > deadline
@@ -113,8 +121,8 @@ rescue Errno::ESRCH
   nil
 end
 
-def run_ab(args, port)
-  `ab #{args.join(' ')} http://127.0.0.1:#{port}#{TEST_PATH} 2>&1`
+def run_ab(args, port, path)
+  `ab #{args.join(' ')} http://127.0.0.1:#{port}#{path} 2>&1`
 end
 
 def parse_ab(output)
@@ -135,7 +143,7 @@ def with_commas(number, decimals:)
   frac ? "#{whole}.#{frac}" : whole
 end
 
-def render_html(results)
+def render_table(results)
   rows = results.sort_by { |r| -r[:reqs] }.map do |r|
     <<~ROW
       <tr>
@@ -153,9 +161,7 @@ def render_html(results)
   # Indent every line of every row so <tr>/<td> land properly nested beneath <tbody>.
   indented_rows = rows.each_line.map { |line| line.strip.empty? ? line : "    #{line}" }.join.chomp
 
-  <<~HTML
-    <title>Raindeer Benchmarks</title>
-
+  <<~TABLE
     <table>
       <thead>
         <tr>
@@ -172,14 +178,29 @@ def render_html(results)
     #{indented_rows}
       </tbody>
     </table>
+  TABLE
+end
+
+def render_html(results_by_label)
+  sections = results_by_label.map do |label, results|
+    "<h2>#{label}</h2>\n\n#{render_table(results)}"
+  end.join("\n")
+
+  <<~HTML
+    <title>Raindeer Benchmarks</title>
+
+    #{sections}
   HTML
 end
 
-def print_summary(results)
-  puts
-  puts format('%-20s %12s %14s %8s %8s %8s %8s', 'Server', 'Req/s', 'Mean (ms)', 'p50', 'p90', 'p99', 'Failed')
-  results.sort_by { |r| -r[:reqs] }.each do |r|
-    puts format('%-20s %12.2f %14.3f %8d %8d %8d %8d', r[:name], r[:reqs], r[:mean], r[:p50], r[:p90], r[:p99], r[:failed])
+def print_summary(results_by_label)
+  results_by_label.each do |label, results|
+    puts
+    puts label
+    puts format('%-20s %12s %14s %8s %8s %8s %8s', 'Server', 'Req/s', 'Mean (ms)', 'p50', 'p90', 'p99', 'Failed')
+    results.sort_by { |r| -r[:reqs] }.each do |r|
+      puts format('%-20s %12.2f %14.3f %8d %8d %8d %8d', r[:name], r[:reqs], r[:mean], r[:p50], r[:p90], r[:p99], r[:failed])
+    end
   end
   puts
 end
@@ -196,25 +217,29 @@ begin
     puts 'ready'
   end
 
-  results = TARGETS.map do |target|
-    puts "Benchmarking #{target[:name]} (warm-up)..."
-    run_ab(WARMUP_ARGS, target[:port])
+  results_by_label = TEST_PATHS.to_h { |label, _path| [label, []] }
 
-    puts "Benchmarking #{target[:name]} (measured)..."
-    output = run_ab(MEASURE_ARGS, target[:port])
-    stats = parse_ab(output)
+  TARGETS.each do |target|
+    TEST_PATHS.each do |label, path|
+      puts "Benchmarking #{target[:name]} (#{label}, warm-up)..."
+      run_ab(WARMUP_ARGS, target[:port], path)
 
-    if stats[:complete] != 20_000 || stats[:failed] != 0
-      warn "  WARNING: #{target[:name]} -- complete=#{stats[:complete]} failed=#{stats[:failed]}"
+      puts "Benchmarking #{target[:name]} (#{label}, measured)..."
+      output = run_ab(MEASURE_ARGS, target[:port], path)
+      stats = parse_ab(output)
+
+      if stats[:complete] != 20_000 || stats[:failed] != 0
+        warn "  WARNING: #{target[:name]} (#{label}) -- complete=#{stats[:complete]} failed=#{stats[:failed]}"
+      end
+
+      results_by_label[label] << stats.merge(name: target[:name])
     end
-
-    stats.merge(name: target[:name])
   end
 
-  print_summary(results)
+  print_summary(results_by_label)
 
   out_path = File.join(ROOT, 'benchmark-report.html')
-  File.write(out_path, render_html(results))
+  File.write(out_path, render_html(results_by_label))
   puts "Wrote #{out_path}"
 ensure
   puts 'Stopping all servers...'
