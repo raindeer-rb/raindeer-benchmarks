@@ -1,8 +1,9 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Runs the full 6-way benchmark (Raindeer+LowLoop/Falcon, Roda+Falcon,
-# Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) twice against each server --
+# Runs the full 8-way benchmark (Raindeer+LowLoop/Falcon/Iodine, Roda+Falcon,
+# Rage+Iodine, Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) twice against
+# each server --
 # once against GET / and once against GET /route100 (the longest/last-
 # registered of the 100 extra routes each app defines, /route1..100) -- and
 # writes benchmark-report.html (two plain, unstyled HTML tables, one per
@@ -56,6 +57,20 @@ TARGETS = [
     port: 9302
   },
   {
+    name: 'Raindeer + Iodine',
+    dir: 'raindeer_app',
+    cmd: 'bundle exec ruby iodine_boot.rb',
+    env: { 'PORT' => '9298' },
+    port: 9298
+  },
+  {
+    name: 'Rage + Iodine',
+    dir: 'rage_app',
+    cmd: 'bundle exec rage s -p 9297 -e production',
+    env: {},
+    port: 9297
+  },
+  {
     name: 'Sinatra + Falcon',
     dir: 'sinatra_app',
     cmd: 'bundle exec falcon serve -b http://127.0.0.1:9295 -n 1 -c config.ru',
@@ -81,7 +96,7 @@ TARGETS = [
 def free_stale_ports!
   # Best-effort cleanup of leftover processes from a previous run that didn't
   # shut down cleanly (e.g. the script was killed mid-run).
-  %w[falcon\ serve bin/server].each do |pattern|
+  %w[falcon\ serve bin/server rage\ s iodine_boot.rb].each do |pattern|
     system("pkill -f '#{pattern}'", out: File::NULL, err: File::NULL)
   end
   sleep 1

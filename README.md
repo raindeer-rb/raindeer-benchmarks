@@ -5,6 +5,11 @@ Benchmarking CPU-bound routes and IO-bound simulated delays. Load-tested locally
 ## Apps
 
 - Roda
+- Raindeer
+- Rage
+- Sinatra
+- Hanami
+- Rails
 
 ## Routes
 - `/` - Short plain-text body to benchmark CPU
