@@ -5,10 +5,15 @@
 # Rage+Iodine, Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) four times against
 # each server -- GET /, plus one route each at 1, 2, and 3 path segments deep.
 # Each app registers ONE mixed-depth route table of 1000 routes, coexisting in
-# a single process, the way a real app's router actually looks: 400 flat
-# routes (/route1..400), 300 two-segment routes 10 groups x 30 leaves
-# (/pair1/leaf1../pair10/leaf30), and 300 three-segment routes 10x10x3
-# (/trio1/mid1/leaf1../trio10/mid10/leaf3).
+# a single process, the way a real app's router actually looks, mirroring the
+# common REST nested-resource pattern -- a resource is independently
+# addressable AND has children (/orgs/5, then /orgs/5/repos/3, then
+# /orgs/5/repos/3/issues/2) -- rather than inventing disjoint namespaces that
+# only ever exist to create depth: 390 plain "solo" leaves (/solo11..400);
+# solo1..10 double as duo parents, each with 20 plain "duo" leaves
+# (/solo1/duo11..30, etc.) plus 10 duo1..10 that double as trio parents, each
+# with 3 "trio" leaves (/solo1/duo1/trio1..3, etc.) -- 390 + 10 + 200 + 100 +
+# 300 = 1000 routes total.
 #
 # Only Roda's 2/3-segment groups are genuinely nested (via r.on) -- reading
 # every other framework's router source confirmed nesting doesn't change
@@ -42,9 +47,9 @@ ENV['PATH'] = "#{RUBY_BIN}:#{ENV['PATH']}"
 READY_PATH = '/'
 TEST_PATHS = {
   'GET /' => '/',
-  '1 segment' => '/route400',
-  '2 segments' => '/pair10/leaf30',
-  '3 segments' => '/trio10/mid10/leaf3'
+  '1 segment' => '/solo10',
+  '2 segments' => '/solo10/duo10',
+  '3 segments' => '/solo10/duo10/trio3'
 }.freeze
 
 WARMUP_ARGS  = %w[-n 2000  -c 25 -k]

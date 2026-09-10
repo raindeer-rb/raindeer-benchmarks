@@ -12,33 +12,48 @@ class App < Sinatra::Base
     "Slow response\n"
   end
 
-  # 1000 routes total, mixed depth, coexisting -- the way a real app's route
-  # table actually looks. 400 flat, 300 two segments deep (10 groups x 30
-  # leaves), 300 three segments deep (10x10x3) -- all registered as flat,
-  # full path strings rather than via Sinatra::Namespace, since nesting there
-  # is registration-time string concatenation into the exact same flat,
-  # linearly-scanned route list (confirmed by reading sinatra-contrib's
-  # source) -- it doesn't help, and measured slightly worse than this, likely
-  # from the extra composed-Mustermann-pattern overhead per check.
-  (1..400).each do |i|
-    get "/route#{i}" do
-      "Route #{i}\n"
+  # 1000 routes total, mirroring the common REST nested-resource pattern: a
+  # resource is independently addressable AND has children (/orgs/5, then
+  # /orgs/5/repos/3, then /orgs/5/repos/3/issues/2) rather than inventing
+  # disjoint namespaces that only ever exist to create depth. solo1..10
+  # double as both ordinary solo leaves and duo parents; duo1..10 (within
+  # each of those) double as both ordinary duo leaves and trio parents. All
+  # registered as flat, full path strings rather than via Sinatra::Namespace,
+  # since nesting there is registration-time string concatenation into the
+  # exact same flat, linearly-scanned route list (confirmed by reading
+  # sinatra-contrib's source) -- it doesn't help, and measured slightly worse
+  # than this, likely from the extra composed-Mustermann-pattern overhead per
+  # check.
+
+  # Plain solo leaves, no children.
+  (11..400).each do |s|
+    get "/solo#{s}" do
+      "Route #{s}\n"
     end
   end
 
-  (1..10).each do |g|
-    (1..30).each do |i|
-      get "/pair#{g}/leaf#{i}" do
-        "Route #{g}-#{i}\n"
+  # solo1..10 are also duo parents.
+  (1..10).each do |s|
+    get "/solo#{s}" do
+      "Route #{s}\n"
+    end
+
+    # Plain duo leaves, no children.
+    (11..30).each do |d|
+      get "/solo#{s}/duo#{d}" do
+        "Route #{s}-#{d}\n"
       end
     end
-  end
 
-  (1..10).each do |g|
-    (1..10).each do |m|
-      (1..3).each do |i|
-        get "/trio#{g}/mid#{m}/leaf#{i}" do
-          "Route #{g}-#{m}-#{i}\n"
+    # duo1..10 (within this solo) are also trio parents.
+    (1..10).each do |d|
+      get "/solo#{s}/duo#{d}" do
+        "Route #{s}-#{d}\n"
+      end
+
+      (1..3).each do |t|
+        get "/solo#{s}/duo#{d}/trio#{t}" do
+          "Route #{s}-#{d}-#{t}\n"
         end
       end
     end

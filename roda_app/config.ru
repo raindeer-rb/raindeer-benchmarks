@@ -13,35 +13,47 @@ class App < Roda
       "Slow response\n"
     end
 
-    # 1000 routes total, mixed depth, coexisting -- the way a real app's
-    # route table actually looks, rather than uniformly flat or uniformly
-    # deep. 400 flat, 300 nested two segments deep (10 groups x 30 leaves),
-    # 300 nested three segments deep (10x10x3). The 2/3-segment groups use
-    # r.on -- Roda's routing-tree primitive -- so a failed group match skips
-    # every leaf under it, instead of checking each one individually.
-    (1..400).each do |i|
-      r.get "route#{i}" do
-        "Route #{i}\n"
+    # 1000 routes total, mirroring the common REST nested-resource pattern:
+    # a resource is independently addressable AND has children (/orgs/5,
+    # then /orgs/5/repos/3, then /orgs/5/repos/3/issues/2) rather than
+    # inventing disjoint namespaces that only ever exist to create depth.
+    # solo1..10 double as both ordinary solo leaves and duo parents;
+    # duo1..10 (within each of those) double as both ordinary duo leaves and
+    # trio parents. r.on -- Roda's routing-tree primitive -- means a failed
+    # solo/duo prefix match skips every route nested under it, instead of
+    # checking each one individually.
+
+    # Plain solo leaves, no children.
+    (11..400).each do |s|
+      r.get "solo#{s}" do
+        "Route #{s}\n"
       end
     end
 
-    (1..10).each do |g|
-      r.on "pair#{g}" do
-        (1..30).each do |i|
-          r.get "leaf#{i}" do
-            "Route #{g}-#{i}\n"
+    # solo1..10 are also duo parents.
+    (1..10).each do |s|
+      r.on "solo#{s}" do
+        r.get true do
+          "Route #{s}\n"
+        end
+
+        # Plain duo leaves, no children.
+        (11..30).each do |d|
+          r.get "duo#{d}" do
+            "Route #{s}-#{d}\n"
           end
         end
-      end
-    end
 
-    (1..10).each do |g|
-      r.on "trio#{g}" do
-        (1..10).each do |m|
-          r.on "mid#{m}" do
-            (1..3).each do |i|
-              r.get "leaf#{i}" do
-                "Route #{g}-#{m}-#{i}\n"
+        # duo1..10 (within this solo) are also trio parents.
+        (1..10).each do |d|
+          r.on "duo#{d}" do
+            r.get true do
+              "Route #{s}-#{d}\n"
+            end
+
+            (1..3).each do |t|
+              r.get "trio#{t}" do
+                "Route #{s}-#{d}-#{t}\n"
               end
             end
           end
