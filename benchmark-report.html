@@ -1,181 +1,80 @@
 <title>Raindeer Benchmarks</title>
 
-<h2>GET /</h2>
-
 <table>
   <thead>
     <tr>
       <th>Server</th>
-      <th>Req/s</th>
-      <th>Mean latency</th>
-      <th>p50</th>
-      <th>p90</th>
-      <th>p99</th>
-      <th>Failed</th>
+      <th>GET / (req/s)</th>
+      <th>1 segment (req/s)</th>
+      <th>2 segments (req/s)</th>
+      <th>3 segments (req/s)</th>
+      <th>Mean latency (3 segments)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Rage + Iodine</td>
-      <td>52,760.84</td>
-      <td>0.948 ms</td>
-      <td>1 ms</td>
-      <td>1 ms</td>
-      <td>2 ms</td>
-      <td>0</td>
+      <td>52,738.44</td>
+      <td>48,220.77</td>
+      <td>45,059.35</td>
+      <td>42,108.99</td>
+      <td>1.187 ms</td>
     </tr>
     <tr>
       <td>Raindeer + Iodine</td>
-      <td>28,170.16</td>
-      <td>1.775 ms</td>
-      <td>2 ms</td>
-      <td>2 ms</td>
-      <td>2 ms</td>
-      <td>0</td>
+      <td>28,259.24</td>
+      <td>23,671.78</td>
+      <td>21,620.94</td>
+      <td>19,464.27</td>
+      <td>2.569 ms</td>
     </tr>
     <tr>
       <td>Roda + Falcon</td>
-      <td>21,242.72</td>
-      <td>2.354 ms</td>
-      <td>2 ms</td>
-      <td>3 ms</td>
-      <td>3 ms</td>
-      <td>0</td>
+      <td>21,694.00</td>
+      <td>4,931.42</td>
+      <td>4,576.65</td>
+      <td>4,699.76</td>
+      <td>10.639 ms</td>
     </tr>
     <tr>
       <td>Raindeer + LowLoop</td>
-      <td>18,926.79</td>
-      <td>2.642 ms</td>
-      <td>3 ms</td>
-      <td>3 ms</td>
-      <td>3 ms</td>
-      <td>0</td>
+      <td>18,771.06</td>
+      <td>17,137.33</td>
+      <td>16,203.86</td>
+      <td>15,020.80</td>
+      <td>3.329 ms</td>
     </tr>
     <tr>
       <td>Raindeer + Falcon</td>
-      <td>16,361.55</td>
-      <td>3.056 ms</td>
-      <td>3 ms</td>
-      <td>3 ms</td>
-      <td>4 ms</td>
-      <td>0</td>
+      <td>17,510.88</td>
+      <td>15,804.70</td>
+      <td>14,544.31</td>
+      <td>13,319.80</td>
+      <td>3.754 ms</td>
     </tr>
     <tr>
       <td>Sinatra + Falcon</td>
-      <td>10,287.29</td>
-      <td>4.860 ms</td>
-      <td>5 ms</td>
-      <td>5 ms</td>
-      <td>6 ms</td>
-      <td>0</td>
+      <td>10,574.35</td>
+      <td>2,475.62</td>
+      <td>1,609.62</td>
+      <td>1,133.58</td>
+      <td>44.108 ms</td>
     </tr>
     <tr>
       <td>Hanami + Falcon</td>
-      <td>6,565.55</td>
-      <td>7.616 ms</td>
-      <td>7 ms</td>
-      <td>8 ms</td>
-      <td>10 ms</td>
-      <td>0</td>
+      <td>6,457.22</td>
+      <td>6,460.68</td>
+      <td>6,248.42</td>
+      <td>6,494.59</td>
+      <td>7.699 ms</td>
     </tr>
     <tr>
       <td>Rails + Falcon</td>
-      <td>2,746.88</td>
-      <td>18.202 ms</td>
-      <td>18 ms</td>
-      <td>19 ms</td>
-      <td>22 ms</td>
-      <td>0</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2>GET /route100</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Server</th>
-      <th>Req/s</th>
-      <th>Mean latency</th>
-      <th>p50</th>
-      <th>p90</th>
-      <th>p99</th>
-      <th>Failed</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Rage + Iodine</td>
-      <td>47,863.84</td>
-      <td>1.045 ms</td>
-      <td>1 ms</td>
-      <td>1 ms</td>
-      <td>2 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Raindeer + Iodine</td>
-      <td>23,599.38</td>
-      <td>2.119 ms</td>
-      <td>2 ms</td>
-      <td>2 ms</td>
-      <td>3 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Raindeer + LowLoop</td>
-      <td>17,642.11</td>
-      <td>2.834 ms</td>
-      <td>3 ms</td>
-      <td>3 ms</td>
-      <td>4 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Raindeer + Falcon</td>
-      <td>15,126.64</td>
-      <td>3.305 ms</td>
-      <td>3 ms</td>
-      <td>4 ms</td>
-      <td>4 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Roda + Falcon</td>
-      <td>11,037.33</td>
-      <td>4.530 ms</td>
-      <td>4 ms</td>
-      <td>5 ms</td>
-      <td>6 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Hanami + Falcon</td>
-      <td>6,568.69</td>
-      <td>7.612 ms</td>
-      <td>8 ms</td>
-      <td>8 ms</td>
-      <td>9 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Sinatra + Falcon</td>
-      <td>5,687.97</td>
-      <td>8.790 ms</td>
-      <td>9 ms</td>
-      <td>9 ms</td>
-      <td>10 ms</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>Rails + Falcon</td>
-      <td>2,715.95</td>
-      <td>18.410 ms</td>
-      <td>18 ms</td>
-      <td>19 ms</td>
-      <td>21 ms</td>
-      <td>0</td>
+      <td>2,660.76</td>
+      <td>2,661.80</td>
+      <td>2,649.09</td>
+      <td>2,567.62</td>
+      <td>19.473 ms</td>
     </tr>
   </tbody>
 </table>

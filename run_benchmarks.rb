@@ -2,20 +2,34 @@
 # frozen_string_literal: true
 
 # Runs the full 8-way benchmark (Raindeer+LowLoop/Falcon/Iodine, Roda+Falcon,
-# Rage+Iodine, Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) twice against
-# each server --
-# once against GET / and once against GET /route100 (the longest/last-
-# registered of the 100 extra routes each app defines, /route1..100) -- and
-# writes benchmark-report.html (two plain, unstyled HTML tables, one per
-# path) in this directory. Re-run any time with:
+# Rage+Iodine, Sinatra+Falcon, Hanami+Falcon, Rails+Falcon) four times against
+# each server -- GET /, plus one route each at 1, 2, and 3 path segments deep.
+# Each app registers ONE mixed-depth route table of 1000 routes, coexisting in
+# a single process, the way a real app's router actually looks: 400 flat
+# routes (/route1..400), 300 two-segment routes 10 groups x 30 leaves
+# (/pair1/leaf1../pair10/leaf30), and 300 three-segment routes 10x10x3
+# (/trio1/mid1/leaf1../trio10/mid10/leaf3).
+#
+# Only Roda's 2/3-segment groups are genuinely nested (via r.on) -- reading
+# every other framework's router source confirmed nesting doesn't change
+# matching cost for them, so their 2/3-segment routes are declared as flat,
+# full path strings like their 1-segment ones: Rails/Hanami/Rage compile to a
+# shared DFA/radix structure regardless of whether the DSL used a flat loop
+# or scope/namespace nesting; Raindeer's router is a segment-level trie that
+# prefix-shares regardless of DSL nesting; and Sinatra's Sinatra::Namespace
+# doesn't create any different structure at all -- it's registration-time
+# string concatenation into the exact same flat, linearly-scanned list
+# (measured to make things slightly worse than flat, not better). Roda's
+# r.on is the only construct here that actually changes what gets checked
+# per request. Writes benchmark-report.html (one plain, unstyled HTML table,
+# one row per server) in this directory. Re-run any time with:
 #
 #   ruby run_benchmarks.rb
 #
 # Method: `ab -n 2000 -c 25 -k` warm-up (discarded), then `ab -n 20000 -c 50 -k`
 # measured, against each server one at a time (never concurrently, to avoid CPU
 # contention skewing results). Each server runs as a single reactor/process --
-# no multi-core forking -- for a fair comparison. Both paths are tested against
-# the same running server before moving on to the next one.
+# no multi-core forking -- for a fair comparison.
 
 require 'net/http'
 require 'timeout'
@@ -28,7 +42,9 @@ ENV['PATH'] = "#{RUBY_BIN}:#{ENV['PATH']}"
 READY_PATH = '/'
 TEST_PATHS = {
   'GET /' => '/',
-  'GET /route100' => '/route100'
+  '1 segment' => '/route400',
+  '2 segments' => '/pair10/leaf30',
+  '3 segments' => '/trio10/mid10/leaf3'
 }.freeze
 
 WARMUP_ARGS  = %w[-n 2000  -c 25 -k]
@@ -158,19 +174,31 @@ def with_commas(number, decimals:)
   frac ? "#{whole}.#{frac}" : whole
 end
 
-def render_table(results)
-  rows = results.sort_by { |r| -r[:reqs] }.map do |r|
-    <<~ROW
-      <tr>
-        <td>#{r[:name]}</td>
-        <td>#{with_commas(r[:reqs], decimals: 2)}</td>
-        <td>#{with_commas(r[:mean], decimals: 3)} ms</td>
-        <td>#{r[:p50]} ms</td>
-        <td>#{r[:p90]} ms</td>
-        <td>#{r[:p99]} ms</td>
-        <td>#{r[:failed]}</td>
-      </tr>
-    ROW
+# One row per server, one Req/s column per benchmarked path (sorted by the
+# first path's Req/s), plus mean latency for the last path only (the highest
+# route count -- the most demanding, most differentiating column).
+def render_table(results_by_label)
+  labels = results_by_label.keys
+  latency_label = labels.last
+  names = results_by_label[labels.first].map { |r| r[:name] }
+
+  stats_by_name = names.to_h do |name|
+    [name, labels.to_h { |label| [label, results_by_label[label].find { |r| r[:name] == name }] }]
+  end
+
+  sorted_names = names.sort_by { |name| -stats_by_name[name][labels.first][:reqs] }
+
+  header_cells = ['<th>Server</th>', *labels.map { |label| "<th>#{label} (req/s)</th>" },
+                   "<th>Mean latency (#{latency_label})</th>"].join("\n      ")
+
+  rows = sorted_names.map do |name|
+    cells = [
+      "<td>#{name}</td>",
+      *labels.map { |label| "<td>#{with_commas(stats_by_name[name][label][:reqs], decimals: 2)}</td>" },
+      "<td>#{with_commas(stats_by_name[name][latency_label][:mean], decimals: 3)} ms</td>"
+    ]
+
+    "<tr>\n  #{cells.join("\n  ")}\n</tr>\n"
   end.join
 
   # Indent every line of every row so <tr>/<td> land properly nested beneath <tbody>.
@@ -180,13 +208,7 @@ def render_table(results)
     <table>
       <thead>
         <tr>
-          <th>Server</th>
-          <th>Req/s</th>
-          <th>Mean latency</th>
-          <th>p50</th>
-          <th>p90</th>
-          <th>p99</th>
-          <th>Failed</th>
+          #{header_cells}
         </tr>
       </thead>
       <tbody>
@@ -194,18 +216,6 @@ def render_table(results)
       </tbody>
     </table>
   TABLE
-end
-
-def render_html(results_by_label)
-  sections = results_by_label.map do |label, results|
-    "<h2>#{label}</h2>\n\n#{render_table(results)}"
-  end.join("\n")
-
-  <<~HTML
-    <title>Raindeer Benchmarks</title>
-
-    #{sections}
-  HTML
 end
 
 def print_summary(results_by_label)
@@ -254,7 +264,12 @@ begin
   print_summary(results_by_label)
 
   out_path = File.join(ROOT, 'benchmark-report.html')
-  File.write(out_path, render_html(results_by_label))
+  report = <<~HTML
+    <title>Raindeer Benchmarks</title>
+
+    #{render_table(results_by_label)}
+  HTML
+  File.write(out_path, report)
   puts "Wrote #{out_path}"
 ensure
   puts 'Stopping all servers...'
