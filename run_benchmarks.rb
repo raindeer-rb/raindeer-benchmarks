@@ -31,8 +31,8 @@
 #
 #   ruby run_benchmarks.rb
 #
-# Pass --hide-iodine to leave the Iodine-based servers out of the HTML table
-# (they're still benchmarked and shown in the terminal summary).
+# Pass --skip-iodine to leave the Iodine-based servers out entirely (not
+# started, benchmarked, or reported).
 #
 # Method: `ab -n 2000 -c 25 -k` warm-up (discarded), then `ab -n 20000 -c 50 -k`
 # measured, against each server one at a time (never concurrently, to avoid CPU
@@ -59,7 +59,7 @@ TEST_PATHS = {
   '3 segments' => '/solo5/duo5/trio2'
 }.freeze
 
-HIDE_IODINE = ARGV.include?('--hide-iodine')
+SKIP_IODINE = ARGV.include?('--skip-iodine')
 
 WARMUP_ARGS  = %w[-n 2000  -c 25 -k]
 MEASURE_ARGS = %w[-n 20000 -c 50 -k]
@@ -121,7 +121,7 @@ TARGETS = [
     env: { 'RAILS_ENV' => 'production' },
     port: 9296
   }
-].freeze
+].reject { |target| SKIP_IODINE && target[:name].downcase.include?('iodine') }.freeze
 
 def free_stale_ports!
   # Best-effort cleanup of leftover processes from a previous run that didn't
@@ -196,7 +196,7 @@ def bold_framework(name)
 end
 
 # One row per server, one Req/s column per benchmarked path (sorted by the
-# first path's Req/s), plus mean latency for the last path only (the highest
+# average Req/s across all paths), plus mean latency for the last path only (the highest
 # route count -- the most demanding, most differentiating column).
 def render_table(results_by_label)
   labels = results_by_label.keys
@@ -207,7 +207,7 @@ def render_table(results_by_label)
     [name, labels.to_h { |label| [label, results_by_label[label].find { |r| r[:name] == name }] }]
   end
 
-  sorted_names = names.sort_by { |name| -stats_by_name[name][labels.first][:reqs] }
+  sorted_names = names.sort_by { |name| -labels.sum { |label| stats_by_name[name][label][:reqs] } / labels.size }
 
   header_cells = ['<th>Server</th>', *labels.map { |label| "<th>#{label} (req/s)</th>" },
                    "<th>Mean latency (#{latency_label})</th>"].join("\n      ")
@@ -285,13 +285,10 @@ begin
   print_summary(results_by_label)
 
   out_path = File.join(ROOT, 'benchmark-report.html')
-  html_results = results_by_label.transform_values do |results|
-    HIDE_IODINE ? results.reject { |r| r[:name].downcase.include?('iodine') } : results
-  end
   report = <<~HTML
     <title>Raindeer Benchmarks</title>
 
-    #{render_table(html_results)}
+    #{render_table(results_by_label)}
   HTML
   File.write(out_path, report)
   puts "Wrote #{out_path}"
