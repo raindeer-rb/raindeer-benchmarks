@@ -189,6 +189,12 @@ def with_commas(number, decimals:)
   frac ? "#{whole}.#{frac}" : whole
 end
 
+# "Roda + Falcon" -> "<strong>Roda</strong> + Falcon": bold the framework, not the server.
+def bold_framework(name)
+  framework, server = name.split(' + ', 2)
+  server ? "<strong>#{framework}</strong> + #{server}" : "<strong>#{framework}</strong>"
+end
+
 # One row per server, one Req/s column per benchmarked path (sorted by the
 # first path's Req/s), plus mean latency for the last path only (the highest
 # route count -- the most demanding, most differentiating column).
@@ -208,7 +214,7 @@ def render_table(results_by_label)
 
   rows = sorted_names.map do |name|
     cells = [
-      "<td>#{name}</td>",
+      "<td>#{bold_framework(name)}</td>",
       *labels.map { |label| "<td>#{with_commas(stats_by_name[name][label][:reqs], decimals: 2)}</td>" },
       "<td>#{with_commas(stats_by_name[name][latency_label][:mean], decimals: 3)} ms</td>"
     ]
