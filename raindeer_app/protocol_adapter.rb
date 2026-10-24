@@ -12,7 +12,7 @@
 require 'bundler/setup'
 
 if ENV['DISABLE_TYPE_CHECKING']
-  require 'low_type'
+  require 'lowtype'
   # Must run before any Raindeer classes load -- the typed-vs-untyped method
   # wrapper is chosen once per class, at class-definition time.
   LowType.configure { |config| config.type_checking = false }

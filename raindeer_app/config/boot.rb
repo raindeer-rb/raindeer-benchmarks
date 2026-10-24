@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'bundler/setup'
-require 'low_type'
+require 'lowtype'
 
 # Must run before any Raindeer classes load -- the typed-vs-untyped method
 # wrapper is chosen once per class, at class-definition time.

@@ -41,7 +41,7 @@ require 'timeout'
 require 'fileutils'
 
 ROOT = __dir__
-RUBY_BIN = File.expand_path('~/.asdf/installs/ruby/3.4.2/bin')
+RUBY_BIN = File.expand_path('~/.local/share/mise/installs/ruby/3.4.2/bin')
 ENV['PATH'] = "#{RUBY_BIN}:#{ENV['PATH']}"
 
 READY_PATH = '/'

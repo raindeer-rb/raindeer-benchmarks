@@ -3,11 +3,7 @@
 source 'https://rubygems.org'
 
 local_gems = {
-  'raindeer' => '/Users/m/dev/raindeer',
-  'low_event' => '/Users/m/dev/low_event',
-  'low_loop' => '/Users/m/dev/low_loop',
-  'low_type' => '/Users/m/dev/low_type',
-  'observers' => '/Users/m/dev/observers'
+  'raindeer' => '/Users/m/dev/raindeer'
 }
 
 local_gems.each do |name, path|
