@@ -31,6 +31,9 @@
 #
 #   ruby run_benchmarks.rb
 #
+# Pass --hide-iodine to leave the Iodine-based servers out of the HTML table
+# (they're still benchmarked and shown in the terminal summary).
+#
 # Method: `ab -n 2000 -c 25 -k` warm-up (discarded), then `ab -n 20000 -c 50 -k`
 # measured, against each server one at a time (never concurrently, to avoid CPU
 # contention skewing results). Each server runs as a single reactor/process --
@@ -45,12 +48,18 @@ RUBY_BIN = File.expand_path('~/.local/share/mise/installs/ruby/3.4.2/bin')
 ENV['PATH'] = "#{RUBY_BIN}:#{ENV['PATH']}"
 
 READY_PATH = '/'
+# The middle member of each route family (solo11..400, duo11..30 within
+# solo1..10, trio1..3 within duo1..10), not the last one declared: Sinatra
+# and Roda match in declaration order, so a route near the end of the list is
+# their worst case, not a typical request.
 TEST_PATHS = {
   'GET /' => '/',
-  '1 segment' => '/solo10',
-  '2 segments' => '/solo10/duo10',
-  '3 segments' => '/solo10/duo10/trio3'
+  '1 segment' => '/solo200',
+  '2 segments' => '/solo5/duo15',
+  '3 segments' => '/solo5/duo5/trio2'
 }.freeze
+
+HIDE_IODINE = ARGV.include?('--hide-iodine')
 
 WARMUP_ARGS  = %w[-n 2000  -c 25 -k]
 MEASURE_ARGS = %w[-n 20000 -c 50 -k]
@@ -169,6 +178,7 @@ def parse_ab(output)
     p90: output[/^\s*90%\s+(\d+)/, 1].to_i,
     p99: output[/^\s*99%\s+(\d+)/, 1].to_i,
     failed: output[/Failed requests:\s+(\d+)/, 1].to_i,
+    non_2xx: output[/Non-2xx responses:\s+(\d+)/, 1].to_i,
     complete: output[/Complete requests:\s+(\d+)/, 1].to_i
   }
 end
@@ -258,8 +268,8 @@ begin
       output = run_ab(MEASURE_ARGS, target[:port], path)
       stats = parse_ab(output)
 
-      if stats[:complete] != 20_000 || stats[:failed] != 0
-        warn "  WARNING: #{target[:name]} (#{label}) -- complete=#{stats[:complete]} failed=#{stats[:failed]}"
+      if stats[:complete] != 20_000 || stats[:failed] != 0 || stats[:non_2xx] != 0
+        warn "  WARNING: #{target[:name]} (#{label}) -- complete=#{stats[:complete]} failed=#{stats[:failed]} non-2xx=#{stats[:non_2xx]}"
       end
 
       results_by_label[label] << stats.merge(name: target[:name])
@@ -269,10 +279,13 @@ begin
   print_summary(results_by_label)
 
   out_path = File.join(ROOT, 'benchmark-report.html')
+  html_results = results_by_label.transform_values do |results|
+    HIDE_IODINE ? results.reject { |r| r[:name].downcase.include?('iodine') } : results
+  end
   report = <<~HTML
     <title>Raindeer Benchmarks</title>
 
-    #{render_table(results_by_label)}
+    #{render_table(html_results)}
   HTML
   File.write(out_path, report)
   puts "Wrote #{out_path}"
